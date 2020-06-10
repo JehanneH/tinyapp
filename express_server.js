@@ -30,6 +30,18 @@ const users = {
   }
 };
 
+const addNewUser = (email, password) => {
+  const userID = generateRandomString();
+  const newUsersObj = {
+    id: userID,
+    email,
+    password
+    };
+
+  users[userID] = newUsersObj;
+  return userID;
+}
+
 const findUserEmail = email => {
   for (let userID in users) {
     if (users[userID].email === email) {
@@ -54,8 +66,8 @@ app.get("/hello", (req, res) => {
 app.get("/urls", (req, res) => {
   const userId = req.cookies['user_id'];
   const currentUser = users[userId];
-  console.log(userId, currentUser)
-  let templateVars = {
+  //console.log(userId, currentUser)
+  const templateVars = {
     urls: urlDatabase,
     currentUser: currentUser
   };
@@ -81,14 +93,14 @@ app.get("/urls/:shortURL", (req, res) => {
   const userId = req.cookies['user_id'];
   const currentUser = users[userId];
 
-  let templateVars = { 
+  const templateVars = { 
     shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL],
     currentUser: currentUser
   };
   res.render("urls_show", templateVars);
 });
 
-app.get("/u/:shortURL", (req, res) => {
+app.get('/u/:shortURL', (req, res) => {
   const longURL = urlDatabase[req.params.shortURL];
   if (longURL) {
   res.redirect(longURL);
@@ -96,6 +108,11 @@ app.get("/u/:shortURL", (req, res) => {
     res.status(404);
     res.end();
   }
+});
+
+app.get('/login', (req, res) => {
+  const templateVars = { currentUser: null };
+  res.render('user_login', templateVars)
 });
 
 app.post('/urls', (req, res) => {
@@ -129,21 +146,26 @@ app.post('/logout', (req, res) => {
 app.post('/register', (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
-  const userID = generateRandomString();
   
-  const newUsersObj = {
-    id: userID,
-    email,
-    password
-    };
+  const user = findUserEmail(email);
 
-  users[userID] = newUsersObj;
 
-  res.cookie('user_id', userID);
-  res.redirect('/urls');
+  if (!req.body.email || !req.body.password) {
+    res.status(400).send('Fields are empty, you must enter an email and password')
+  };
 
-    //console.log(users);
-})
+  if (!user) {
+    const userID = addNewUser(email, password);
+    res.cookie('user_id', userID);
+    res.redirect('/urls');
+  } else {
+    res.status(400).send('User already registered')
+  };
+
+  
+ 
+  
+});
 
 app.listen(PORT, () => {
   console.log(`Example app listening on port ${PORT}`);
