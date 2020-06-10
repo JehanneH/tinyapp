@@ -11,15 +11,16 @@
     </div> <!-- navbar-nav -->
     </div> <!-- collapse navbar-collapse -->
 
-    <% if(username !== "undefined"){ %>
-      <form class="form-inline" action="/login" method="POST">
+    <% if(currentUser){ %>
+
+      <form class="form-inline" action="/logout" method="POST">
         <div class="form-group mb-2">
-          <label style="margin-right: 10px;" for="longURL">Logged in as: <%= username %></label>
+          <label style="margin-right: 10px;" for="longURL">Logged in as: <%= currentUser.email %></label>
           <button style="margin-left: 10px;" type="submit" class="btn btn-outline-light">Logout</button>
         </div>
       </form>
       
-    <% } else{ %>  
+    <% } else { %>  
       <form class="form-inline" action="/login" method="POST">
         <div class="form-group mb-2">
           <input class="form-control" type="text" name="username" placeholder="enter your username..." style="width: 200px; margin: auto; margin-left: 10px; margin-right: 10px;">
@@ -27,6 +28,7 @@
         </div>
       </form>
    <% } %>
+
 
   </nav>
 </header>
