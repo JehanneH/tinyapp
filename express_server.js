@@ -121,7 +121,6 @@ app.get('/u/:shortURL', (req, res) => {
 
 app.get('/login', (req, res) => {
   const templateVars = { currentUser: null };
-  res.cookie('user_id', user.id);
   res.render('user_login', templateVars);
 });
 
@@ -149,18 +148,17 @@ app.post('/login', (req, res) => {
 
   const user = authenticateUser(email, password);
 
-  if (user !== email) {
-
-  }
- 
+//this still isn't working quite right
   if (user) {
     res.cookie('user_id', user.id);
     res.redirect('/urls');
   } else {
     res.status(403).send('Try again! Email and password do not match');
   };
-
-  
+  //this one won't if it's below and vice versa
+  if (!user) {
+    res.status(403).send('Email cannot be found')
+  };
 });
 
 app.post('/logout', (req, res) => {
@@ -186,9 +184,6 @@ app.post('/register', (req, res) => {
   } else {
     res.status(400).send('User already registered')
   };
-
-  
- 
   
 });
 
