@@ -40,7 +40,7 @@ const addNewUser = (email, password) => {
 
   users[userID] = newUsersObj;
   return userID;
-}
+};
 
 const findUserEmail = email => {
   for (let userID in users) {
@@ -49,6 +49,15 @@ const findUserEmail = email => {
     }
   }
   return false;
+};
+
+const authenticateUser = (email, password) => {
+  const user = findUserEmail(email);
+  if (user && user.password === password) {
+    return user;
+  } else {
+    return false;
+  }
 };
 
 app.get("/", (req, res) => {
@@ -112,6 +121,7 @@ app.get('/u/:shortURL', (req, res) => {
 
 app.get('/login', (req, res) => {
   const templateVars = { currentUser: null };
+  res.cookie('user_id', user.id);
   res.render('user_login', templateVars);
 });
 
@@ -136,7 +146,21 @@ app.post('/urls/:shortURL/delete', (req, res) => {
 app.post('/login', (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
-  res.redirect('/urls');
+
+  const user = authenticateUser(email, password);
+
+  if (user !== email) {
+
+  }
+ 
+  if (user) {
+    res.cookie('user_id', user.id);
+    res.redirect('/urls');
+  } else {
+    res.status(403).send('Try again! Email and password do not match');
+  };
+
+  
 });
 
 app.post('/logout', (req, res) => {
@@ -151,7 +175,7 @@ app.post('/register', (req, res) => {
   const user = findUserEmail(email);
 
 
-  if (!req.body.email || !req.body.password) {
+  if (!email || !password) {
     res.status(400).send('Fields are empty, you must enter an email and password')
   };
 
