@@ -91,11 +91,18 @@ app.get("/register", (req, res) => {
 app.get("/urls/new", (req, res) => {
   const userId = req.cookies['user_id'];
   const currentUser = users[userId];
-  
   let templateVars = {
     currentUser: currentUser
   };
-  res.render("urls_new", templateVars);
+
+//i think i did this? if the user isn't logged in they they should be redirected to login page
+  if (!currentUser) {
+    res.redirect('/login');
+   
+  } else {
+    res.render("urls_new", templateVars);
+  } 
+  
 });
 
 app.get("/urls/:shortURL", (req, res) => {
@@ -162,14 +169,15 @@ app.post('/login', (req, res) => {
 });
 
 app.post('/logout', (req, res) => {
-  res.clearCookie('user_id', null);
+  //are we supposed to clear cookies when logging out? cause it can't remember my user
+  res.cookie('user_id', null);
   res.redirect('/urls');
 });
 
 app.post('/register', (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
-  
+  const userID = addNewUser(email, password);
   const user = findUserEmail(email);
 
 
@@ -178,7 +186,6 @@ app.post('/register', (req, res) => {
   };
 
   if (!user) {
-    const userID = addNewUser(email, password);
     res.cookie('user_id', userID);
     res.redirect('/urls');
   } else {
