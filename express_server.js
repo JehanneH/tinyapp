@@ -112,7 +112,7 @@ app.get('/u/:shortURL', (req, res) => {
 
 app.get('/login', (req, res) => {
   const templateVars = { currentUser: null };
-  res.render('user_login', templateVars)
+  res.render('user_login', templateVars);
 });
 
 app.post('/urls', (req, res) => {
@@ -134,7 +134,8 @@ app.post('/urls/:shortURL/delete', (req, res) => {
 });
 
 app.post('/login', (req, res) => {
-  res.cookie("username", req.body.username);
+  const email = req.body.email;
+  const password = req.body.password;
   res.redirect('/urls');
 });
 
