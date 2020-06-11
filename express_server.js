@@ -8,16 +8,20 @@ app.use(bodyParser.urlencoded({extended: true}));
 app.set("view engine", "ejs");
 app.use(cookieParser());
 
-function generateRandomString() {
-  return Math.random().toString(36).substr(2, 6);
-};
 
+
+// const urlDatabase = {
+//   "b2xVn2": "http://www.lighthouselabs.ca",
+//   "9sm5xK": "http://www.google.com"
+// };
+
+// shortURL keys, long and user values
 const urlDatabase = {
-  "b2xVn2": "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com"
+  b6UTxQ: { longURL: "https://www.tsn.ca", userID: "aJ48lW" },
+  i3BoGr: { longURL: "https://www.google.ca", userID: "aJ48lW" }
 };
-
-const users = { 
+// database of users
+const usersDatabase = { 
   "userRandomID": {
     id: "userRandomID", 
     email: "user@example.com", 
@@ -28,29 +32,26 @@ const users = {
     email: "user2@example.com", 
     password: "dishwasher-funk"
   }
+}; 
+
+
+// ******** FUNCTIONS ***********
+// function generates random 6 string
+function generateRandomString() {
+  return Math.random().toString(36).substr(2, 6);
 };
 
-const addNewUser = (email, password) => {
-  const userID = generateRandomString();
-  const newUsersObj = {
-    id: userID,
-    email,
-    password
-    };
-
-  users[userID] = newUsersObj;
-  return userID;
-};
-
+// helper function find user by email
 const findUserEmail = email => {
-  for (let userID in users) {
-    if (users[userID].email === email) {
-      return users[userID];
+  for (let userID in usersDatabase) {
+    if (usersDatabase[userID].email === email) {
+      return usersDatabase[userID];
     }
   }
   return false;
 };
 
+// helper function authenticate user by comparing email and poa
 const authenticateUser = (email, password) => {
   const user = findUserEmail(email);
   if (user && user.password === password) {
@@ -60,42 +61,80 @@ const authenticateUser = (email, password) => {
   }
 };
 
-app.get("/", (req, res) => {
-  res.send("Hello");
-});
+// helper function adds new user
+const addNewUser = (email, password) => {
+  const userID = generateRandomString();
+  const newUsersObj = {
+    id: userID,
+    email,
+    password
+    };
 
-app.get("/urls.json", (req, res) => {
-  res.json(urlDatabase);
-});
+  usersDatabase[userID] = newUsersObj;
+  return userID;
+};
 
-app.get("/hello", (req, res) => {
-  res.send("<html><body>Hello <b>World</b></body></html>\n")
-});
+function urlsForUser(id) {
+  //prepare data
+  let filteredList = {};
 
+  for (let shortUrl in urlDatabase) {
+
+    if (urlDatabase[shortUrl].userID === id)
+
+      filteredList[shortUrl] = urlDatabase[shortUrl];
+  }
+  return filteredList
+};
+
+
+// BEGINNING OF PROJECT
+// app.get("/", (req, res) => {
+//   res.send("Hello");
+// });
+
+// app.get("/urls.json", (req, res) => {
+//   res.json(urlDatabase);
+// });
+
+// app.get("/hello", (req, res) => {
+//   res.send("<html><body>Hello <b>World</b></body></html>\n")
+// });
+
+
+// GET asking for the urls
 app.get("/urls", (req, res) => {
   const userId = req.cookies['user_id'];
-  const currentUser = users[userId];
-  //console.log(userId, currentUser)
+  const currentUser = usersDatabase[userId];
+  
   const templateVars = {
-    urls: urlDatabase,
+    urls: urlsForUser(userId),
     currentUser: currentUser
   };
-  res.render("urls_index", templateVars);
+
+  if (!currentUser) {
+    res.send('You must be logged in to view this page');
+  } else {
+    res.render("urls_index", templateVars);
+  };
+
+
 });
 
+// GET user register page, current user is null..there is no user
 app.get("/register", (req, res) => {
   let templateVars = { currentUser: null}
   res.render("user_register", templateVars);
 });
 
+// GET create new url. if the current user is not logged, redirect to login page
 app.get("/urls/new", (req, res) => {
   const userId = req.cookies['user_id'];
-  const currentUser = users[userId];
+  const currentUser = usersDatabase[userId];
   let templateVars = {
     currentUser: currentUser
   };
 
-//i think i did this? if the user isn't logged in they they should be redirected to login page
   if (!currentUser) {
     res.redirect('/login');
    
@@ -105,17 +144,32 @@ app.get("/urls/new", (req, res) => {
   
 });
 
+// GET show tiny url created
+// this one should be displaying "Tiny URL for: long " but not working??? 
 app.get("/urls/:shortURL", (req, res) => {
+
+ // console.log(req.body.longURL) undefined
+
   const userId = req.cookies['user_id'];
-  const currentUser = users[userId];
+  const currentUser = usersDatabase[userId];
+  
 
   const templateVars = { 
-    shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL],
+    urls: urlsForUser(userId),
+    shortURL: req.params.shortURL,
+    longURL: req.body.longURL, // this doesn't show i don't know what to put here???
     currentUser: currentUser
   };
-  res.render("urls_show", templateVars);
+  
+  if (!currentUser) {
+    res.send('You must be logged in to view this page');
+  } else {
+    res.render("urls_show", templateVars);
+  };
+  
 });
 
+// GET redirects short url to the long url
 app.get('/u/:shortURL', (req, res) => {
   const longURL = urlDatabase[req.params.shortURL];
   if (longURL) {
@@ -126,29 +180,64 @@ app.get('/u/:shortURL', (req, res) => {
   }
 });
 
+// GET login page, current user is null bc they are not logged in yet
 app.get('/login', (req, res) => {
   const templateVars = { currentUser: null };
   res.render('user_login', templateVars);
 });
 
+// POST connects userID to the tiny url created
 app.post('/urls', (req, res) => {
-  const tiny = generateRandomString();
-  urlDatabase[tiny] = req.body.longURL;
-  res.redirect(`/urls/ ${tiny}`);
+
+  const tinyURL = generateRandomString();
+  const userID = req.cookies['user_id'];
+  
+  const tempURL = {
+    longURL: req.body.longURL,
+    userID: userID
+  };
+  
+  urlDatabase[tinyURL] = tempURL;
+
+  res.redirect(`/urls/ ${tinyURL}`);
 });
 
+
+// POST update url - edit the longURL associated with the shortURL
 app.post("/urls/:shortURL", (req, res) => {
   const updateUrl = req.params.shortURL;
   let newURL = req.body.longURL;
   urlDatabase[updateUrl] = newURL;
-  res.redirect('/urls')
+
+  const userId = req.cookies['user_id'];
+  const currentUser = usersDatabase[userId];
+
+  // user must be logged in to edit a url
+  if (!currentUser) {
+    res.send('You must be logged in to edit a URL');
+  } else {
+    res.redirect('/urls');
+  };
+
 });
 
+// POST delete url
 app.post('/urls/:shortURL/delete', (req, res) => {
-  delete urlDatabase[req.params.shortURL];
-  res.redirect('/urls');
+  
+  const userId = req.cookies['user_id'];
+  const currentUser = usersDatabase[userId];
+
+  // user should be logged on to delete the url. If they are not logged on they cannot delete
+  if (!currentUser) {
+    res.send('You must be logged in to delete a URL');
+  } else {
+    delete urlDatabase[req.params.shortURL];
+    res.redirect('/urls', templateVars);
+  };
+
 });
 
+// POST log in. user can log in.
 app.post('/login', (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
@@ -156,6 +245,8 @@ app.post('/login', (req, res) => {
   const user = authenticateUser(email, password);
 
 //this still isn't working quite right
+
+// if user exists let them log in, if they don't then their passwords don't match
   if (user) {
     res.cookie('user_id', user.id);
     res.redirect('/urls');
@@ -168,23 +259,25 @@ app.post('/login', (req, res) => {
   };
 });
 
+// POST user logs out and cookies are cleared
 app.post('/logout', (req, res) => {
-  //are we supposed to clear cookies when logging out? cause it can't remember my user
-  res.cookie('user_id', null);
+  res.clearCookie('user_id', null);
   res.redirect('/urls');
 });
 
+// POST user registers for account with email and password
 app.post('/register', (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
   const userID = addNewUser(email, password);
   const user = findUserEmail(email);
 
-
+// if no email or password they forgot to put info in
   if (!email || !password) {
     res.status(400).send('Fields are empty, you must enter an email and password')
   };
 
+  // if user doesn't exist, they can register. if they exist they should not be allowed
   if (!user) {
     res.cookie('user_id', userID);
     res.redirect('/urls');
@@ -194,6 +287,8 @@ app.post('/register', (req, res) => {
   
 });
 
+
+// LISTEN at port 8080
 app.listen(PORT, () => {
   console.log(`Example app listening on port ${PORT}`);
 });
