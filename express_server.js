@@ -2,7 +2,11 @@ const express = require("express");
 const app = express();
 const PORT = 8080;
 const bodyParser = require("body-parser");
-const cookieParser = require('cookie-parser')
+const cookieParser = require('cookie-parser');
+
+const bcrypt = require('bcrypt');
+const saltRound = 10;
+
 
 app.use(bodyParser.urlencoded({extended: true}));
 app.set("view engine", "ejs");
@@ -10,28 +14,25 @@ app.use(cookieParser());
 
 
 
-// const urlDatabase = {
-//   "b2xVn2": "http://www.lighthouselabs.ca",
-//   "9sm5xK": "http://www.google.com"
-// };
-
 // shortURL keys, long and user values
 const urlDatabase = {
   b6UTxQ: { longURL: "https://www.tsn.ca", userID: "aJ48lW" },
   i3BoGr: { longURL: "https://www.google.ca", userID: "aJ48lW" }
 };
-// database of users
+
+
 const usersDatabase = { 
   "userRandomID": {
     id: "userRandomID", 
     email: "user@example.com", 
-    password: "purple-monkey-dinosaur"
+    password: bcrypt.hashSync('a', saltRound),
   },
  "user2RandomID": {
     id: "user2RandomID", 
     email: "user2@example.com", 
-    password: "dishwasher-funk"
+    password: bcrypt.hashSync('dish', saltRound)
   }
+
 }; 
 
 
@@ -54,7 +55,11 @@ const findUserEmail = email => {
 // helper function authenticate user by comparing email and poa
 const authenticateUser = (email, password) => {
   const user = findUserEmail(email);
-  if (user && user.password === password) {
+
+
+  if (user && bcrypt.compareSync(password, user.password)) {
+   
+    //console.log(bcrypt.compareSync(password, user.password))
     return user;
   } else {
     return false;
@@ -64,10 +69,11 @@ const authenticateUser = (email, password) => {
 // helper function adds new user
 const addNewUser = (email, password) => {
   const userID = generateRandomString();
+  const hashedPassword = bcrypt.hashSync(password, saltRound);
   const newUsersObj = {
     id: userID,
     email,
-    password
+    password: hashedPassword
     };
 
   usersDatabase[userID] = newUsersObj;
@@ -86,8 +92,15 @@ function urlsForUser(id) {
   }
   return filteredList
 };
-
-
+function getLongURLFromShort(shortURL) {
+  let longUrl = ""
+  for (let key in urlDatabase) {
+    if (shortURL === key) {
+      longUrl = urlDatabase[key].longURL
+    }
+  }
+  return longUrl;
+};
 // BEGINNING OF PROJECT
 // app.get("/", (req, res) => {
 //   res.send("Hello");
@@ -96,6 +109,10 @@ function urlsForUser(id) {
 // app.get("/urls.json", (req, res) => {
 //   res.json(urlDatabase);
 // });
+
+app.get("/users.json", (req, res) => {
+  res.json(usersDatabase);
+});
 
 // app.get("/hello", (req, res) => {
 //   res.send("<html><body>Hello <b>World</b></body></html>\n")
@@ -148,16 +165,17 @@ app.get("/urls/new", (req, res) => {
 // this one should be displaying "Tiny URL for: long " but not working??? 
 app.get("/urls/:shortURL", (req, res) => {
 
- // console.log(req.body.longURL) undefined
+//  console.log(urlDatabase)
+//  console.log(urlDatabase[req.params.shortURL.toString()])
+//  console.log(req.params.shortURL)
 
   const userId = req.cookies['user_id'];
   const currentUser = usersDatabase[userId];
-  
 
   const templateVars = { 
     urls: urlsForUser(userId),
     shortURL: req.params.shortURL,
-    longURL: req.body.longURL, // this doesn't show i don't know what to put here???
+    longURL: getLongURLFromShort(req.params.shortURL),
     currentUser: currentUser
   };
   
@@ -192,6 +210,7 @@ app.post('/urls', (req, res) => {
   const tinyURL = generateRandomString();
   const userID = req.cookies['user_id'];
   
+
   const tempURL = {
     longURL: req.body.longURL,
     userID: userID
@@ -199,7 +218,7 @@ app.post('/urls', (req, res) => {
   
   urlDatabase[tinyURL] = tempURL;
 
-  res.redirect(`/urls/ ${tinyURL}`);
+  res.redirect(`/urls/${tinyURL}`);
 });
 
 
@@ -244,19 +263,22 @@ app.post('/login', (req, res) => {
 
   const user = authenticateUser(email, password);
 
-//this still isn't working quite right
+
 
 // if user exists let them log in, if they don't then their passwords don't match
   if (user) {
     res.cookie('user_id', user.id);
     res.redirect('/urls');
   } else {
-    res.status(403).send('Try again! Email and password do not match');
+    const emailExists = findUserEmail(email)
+    if (emailExists) {
+      res.status(403).send('Try again! Email and password do not match');
+    } else {
+      res.status(403).send('Email cannot be found');
+    }
   };
-  //this one won't if it's below and vice versa
-  if (!user) {
-    res.status(403).send('Email cannot be found')
-  };
+ 
+ 
 });
 
 // POST user logs out and cookies are cleared
@@ -269,7 +291,7 @@ app.post('/logout', (req, res) => {
 app.post('/register', (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
-  const userID = addNewUser(email, password);
+ 
   const user = findUserEmail(email);
 
 // if no email or password they forgot to put info in
@@ -279,6 +301,7 @@ app.post('/register', (req, res) => {
 
   // if user doesn't exist, they can register. if they exist they should not be allowed
   if (!user) {
+    const userID = addNewUser(email, password);
     res.cookie('user_id', userID);
     res.redirect('/urls');
   } else {
