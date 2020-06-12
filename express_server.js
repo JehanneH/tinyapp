@@ -1,16 +1,16 @@
 // ------------- REQUIRE/USE -------------
 
-const express = require("express");
+const express = require('express');
 const app = express();
 const PORT = 8080;
-const bodyParser = require("body-parser");
+const bodyParser = require('body-parser');
 const cookieSession = require('cookie-session');
 
 const bcrypt = require('bcrypt');
 const saltRound = 10;
 
 app.use(bodyParser.urlencoded({extended: true}));
-app.set("view engine", "ejs");
+app.set('view engine', 'ejs');
 
 app.use(cookieSession({
   name: 'session',
@@ -21,19 +21,19 @@ app.use(cookieSession({
 // -------------- USER INFORMATION --------------
 
 const urlDatabase = {
-  b6UTxQ: { longURL: "https://www.tsn.ca", userID: "aJ48lW" },
-  i3BoGr: { longURL: "https://www.google.ca", userID: "aJ48lW" }
+  b6UTxQ: { longURL: 'https://www.tsn.ca', userID: 'aJ48lW' },
+  i3BoGr: { longURL: 'https://www.google.ca', userID: 'aJ48lW' }
 };
 
 const usersDatabase = {
-  "userRandomID": {
-    id: "userRandomID",
-    email: "user@example.com",
+  'userRandomID': {
+    id: 'userRandomID',
+    email: 'user@example.com',
     password: bcrypt.hashSync('a', saltRound),
   },
-  "user2RandomID": {
-    id: "user2RandomID",
-    email: "user2@example.com",
+  'user2RandomID': {
+    id: 'user2RandomID',
+    email: 'user2@example.com',
     password: bcrypt.hashSync('dish', saltRound)
   }
 };
@@ -84,7 +84,7 @@ const urlsForUser = (id) => {
 
 // function finds the longURL associated with the shortURL
 const getLongURLFromShort = (shortURL) => {
-  let longUrl = "";
+  let longUrl = '';
   for (let key in urlDatabase) {
     if (shortURL === key) {
       longUrl = urlDatabase[key].longURL;
@@ -97,7 +97,7 @@ const getLongURLFromShort = (shortURL) => {
 // -------------- GET URLS --------------
 
 // GET asking for the urls
-app.get("/urls", (req, res) => {
+app.get('/urls', (req, res) => {
   const userId = req.session['user_id'];
   const currentUser = usersDatabase[userId];
   
@@ -109,12 +109,12 @@ app.get("/urls", (req, res) => {
   if (!currentUser) {
     res.send('🔒 You must login to view this page 🔒');
   } else {
-    res.render("urls_index", templateVars);
+    res.render('urls_index', templateVars);
   }
 });
 
 // GET create new url. if the current user is not logged, redirect to login page
-app.get("/urls/new", (req, res) => {
+app.get('/urls/new', (req, res) => {
   const userId = req.session['user_id'];
   const currentUser = usersDatabase[userId];
   let templateVars = {
@@ -124,12 +124,12 @@ app.get("/urls/new", (req, res) => {
   if (!currentUser) {
     res.redirect('/login');
   } else {
-    res.render("urls_new", templateVars);
+    res.render('urls_new', templateVars);
   }
 });
 
 // GET tiny url created associated from long url, user must login to see this
-app.get("/urls/:shortURL", (req, res) => {
+app.get('/urls/:shortURL', (req, res) => {
 
   const userId = req.session['user_id'];
   const currentUser = usersDatabase[userId];
@@ -144,7 +144,7 @@ app.get("/urls/:shortURL", (req, res) => {
   if (!currentUser) {
     res.send('🔒 You must login to view this page 🔒');
   } else {
-    res.render("urls_show", templateVars);
+    res.render('urls_show', templateVars);
   }
 });
 
@@ -163,7 +163,7 @@ app.get('/u/:shortURL', (req, res) => {
 // ---------- GET USER REGISTER/LOGIN ----------
 
 // GET user register page, user is null...there is no user yet
-app.get("/register", (req, res) => {
+app.get('/register', (req, res) => {
   const userId = req.session['user_id'];
   const currentUser = usersDatabase[userId];
 
@@ -172,7 +172,7 @@ app.get("/register", (req, res) => {
   }
 
   let templateVars = { currentUser: null};
-  res.render("user_register", templateVars);
+  res.render('user_register', templateVars);
 });
 
 // GET login page, current user is null bc they are not logged in yet
@@ -201,7 +201,7 @@ app.post('/urls', (req, res) => {
 });
 
 // POST update url, user can edit the longURL associated with the shortURL, must be logged in to do this
-app.post("/urls/:shortURL", (req, res) => {
+app.post('/urls/:shortURL', (req, res) => {
   const shortURL = req.params.shortURL;
   const newURL = req.body.longURL;
   
