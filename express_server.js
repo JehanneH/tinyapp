@@ -1,3 +1,5 @@
+// ------------- REQUIRE/USE -------------
+
 const express = require("express");
 const app = express();
 const PORT = 8080;
@@ -15,7 +17,9 @@ app.use(cookieSession({
   keys: ['f080ac7b-b838-4c5f-a1f4-b0a9fee10130', 'c3fb18be-448b-4f6e-a377-49373e9b7e1a']
 }));
 
-// *********** USER INFORMATION ***********
+
+// -------------- USER INFORMATION --------------
+
 const urlDatabase = {
   b6UTxQ: { longURL: "https://www.tsn.ca", userID: "aJ48lW" },
   i3BoGr: { longURL: "https://www.google.ca", userID: "aJ48lW" }
@@ -34,7 +38,8 @@ const usersDatabase = {
   }
 };
 
-// *********** HELPER FUNCTIONS ***********
+
+// ---------- HELPER FUNCTIONS ----------
 
 // function finds user by email
 const { findUserByEmail } = require('./helpers');
@@ -88,6 +93,9 @@ const getLongURLFromShort = (shortURL) => {
   return longUrl;
 };
 
+
+// -------------- GET URLS --------------
+
 // GET asking for the urls
 app.get("/urls", (req, res) => {
   const userId = req.session['user_id'];
@@ -105,19 +113,6 @@ app.get("/urls", (req, res) => {
   }
 });
 
-// GET user register page, user is null...there is no user yet
-app.get("/register", (req, res) => {
-  const userId = req.session['user_id'];
-  const currentUser = usersDatabase[userId];
-
-  if (currentUser) {
-    res.redirect('/urls');
-  }
-
-  let templateVars = { currentUser: null};
-  res.render("user_register", templateVars);
-});
-
 // GET create new url. if the current user is not logged, redirect to login page
 app.get("/urls/new", (req, res) => {
   const userId = req.session['user_id'];
@@ -133,7 +128,7 @@ app.get("/urls/new", (req, res) => {
   }
 });
 
-// GET tiny url created associated from long url, user must be login to see this
+// GET tiny url created associated from long url, user must login to see this
 app.get("/urls/:shortURL", (req, res) => {
 
   const userId = req.session['user_id'];
@@ -153,7 +148,7 @@ app.get("/urls/:shortURL", (req, res) => {
   }
 });
 
-// GET redirects short url to the long url
+// GET redirects short url to the long url website, if shortURL is wrong there is an error message
 app.get('/u/:shortURL', (req, res) => {
   const longURL = getLongURLFromShort(req.params.shortURL);
   if (longURL) {
@@ -164,13 +159,32 @@ app.get('/u/:shortURL', (req, res) => {
   }
 });
 
+
+// ---------- GET USER REGISTER/LOGIN ----------
+
+// GET user register page, user is null...there is no user yet
+app.get("/register", (req, res) => {
+  const userId = req.session['user_id'];
+  const currentUser = usersDatabase[userId];
+
+  if (currentUser) {
+    res.redirect('/urls');
+  }
+
+  let templateVars = { currentUser: null};
+  res.render("user_register", templateVars);
+});
+
 // GET login page, current user is null bc they are not logged in yet
 app.get('/login', (req, res) => {
   const templateVars = { currentUser: null };
   res.render('user_login', templateVars);
 });
 
-// POST connects userID to the tiny url created
+
+// ------------- POST URLS -------------
+
+// POST connects userID to the short url created, redirects to the shortURL created
 app.post('/urls', (req, res) => {
 
   const tinyURL = generateRandomString();
@@ -186,11 +200,7 @@ app.post('/urls', (req, res) => {
   res.redirect(`/urls/${tinyURL}`);
 });
 
-app.get('/urls.json', (req, res) => {
-  res.json(urlDatabase);
-});
-
-// POST update url - edit the longURL associated with the shortURL
+// POST update url, user can edit the longURL associated with the shortURL, must be logged in to do this
 app.post("/urls/:shortURL", (req, res) => {
   const shortURL = req.params.shortURL;
   const newURL = req.body.longURL;
@@ -200,7 +210,6 @@ app.post("/urls/:shortURL", (req, res) => {
   const userId = req.session['user_id'];
   const currentUser = usersDatabase[userId];
 
-  // user must be logged in to edit a url
   if (!currentUser) {
     res.send('🔒 You must login to edit a URL 🔒');
   } else {
@@ -209,13 +218,12 @@ app.post("/urls/:shortURL", (req, res) => {
 
 });
 
-// POST delete url
+// POST delete url, user should be logged to do this, If they are not logged on they cannot delete
 app.post('/urls/:shortURL/delete', (req, res) => {
   
   const userId = req.session['user_id'];
   const currentUser = usersDatabase[userId];
 
-  // user should be logged on to delete the url. If they are not logged on they cannot delete
   if (!currentUser) {
     res.send('🔒 You must login to delete a URL 🔒');
   } else {
@@ -225,14 +233,15 @@ app.post('/urls/:shortURL/delete', (req, res) => {
 
 });
 
-// POST log in. user can log in.
+
+// ------------ POST USER LOGIN/LOGOUT/REGISTER ------------
+
+// POST user can login. Error messages for if email or password are wrong and if email doesn't exist
 app.post('/login', (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
-
   const user = authenticateUser(email, password);
 
-  // if user exists let them log in, if they don't then their passwords don't match
   if (user) {
     req.session['user_id'] = user.id;
     res.redirect('/urls');
@@ -241,7 +250,7 @@ app.post('/login', (req, res) => {
     if (emailExists) {
       res.status(403).send('🔐 Try again! Email and password do not match 🔐');
     } else {
-      res.status(403).send('🔎 Email cannot be found 🔎');
+      res.status(403).send('🔎 Email cannot be found, must register for an account 🔎');
     }
   }
 });
@@ -252,19 +261,17 @@ app.post('/logout', (req, res) => {
   res.redirect('/urls');
 });
 
-// POST user registers for account with email and password
+// POST user registers for account with email and password. Error messages if no email or password and if user already exists
 app.post('/register', (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
  
   const user = findUserByEmail(email, usersDatabase);
 
-  // if no email or password they forgot to put info in
   if (!email || !password) {
     res.status(400).send('📝 Fields are empty, you must enter an email and a password 📝');
   }
 
-  // if user doesn't exist, they can register. if they exist they should not be allowed
   if (!user) {
     const userID = addNewUser(email, password);
     req.session['user_id'] = userID;
@@ -275,6 +282,7 @@ app.post('/register', (req, res) => {
   
 });
 
+// ------------ PORT ------------
 // LISTEN at port 8080
 app.listen(PORT, () => {
   console.log(`Example app listening on port ${PORT}`);
