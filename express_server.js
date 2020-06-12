@@ -2,7 +2,7 @@ const express = require("express");
 const app = express();
 const PORT = 8080;
 const bodyParser = require("body-parser");
-const cookieParser = require('cookie-parser');
+const cookieSession = require('cookie-session');
 
 const bcrypt = require('bcrypt');
 const saltRound = 10;
@@ -10,7 +10,11 @@ const saltRound = 10;
 
 app.use(bodyParser.urlencoded({extended: true}));
 app.set("view engine", "ejs");
-app.use(cookieParser());
+
+app.use(cookieSession({
+  name: 'session',
+  keys: ['f080ac7b-b838-4c5f-a1f4-b0a9fee10130', 'c3fb18be-448b-4f6e-a377-49373e9b7e1a']
+}));
 
 
 
@@ -37,6 +41,7 @@ const usersDatabase = {
 
 
 // ******** FUNCTIONS ***********
+
 // function generates random 6 string
 function generateRandomString() {
   return Math.random().toString(36).substr(2, 6);
@@ -92,6 +97,7 @@ function urlsForUser(id) {
   }
   return filteredList
 };
+
 function getLongURLFromShort(shortURL) {
   let longUrl = ""
   for (let key in urlDatabase) {
@@ -101,27 +107,10 @@ function getLongURLFromShort(shortURL) {
   }
   return longUrl;
 };
-// BEGINNING OF PROJECT
-// app.get("/", (req, res) => {
-//   res.send("Hello");
-// });
-
-// app.get("/urls.json", (req, res) => {
-//   res.json(urlDatabase);
-// });
-
-app.get("/users.json", (req, res) => {
-  res.json(usersDatabase);
-});
-
-// app.get("/hello", (req, res) => {
-//   res.send("<html><body>Hello <b>World</b></body></html>\n")
-// });
-
 
 // GET asking for the urls
 app.get("/urls", (req, res) => {
-  const userId = req.cookies['user_id'];
+  const userId = req.session['user_id'];
   const currentUser = usersDatabase[userId];
   
   const templateVars = {
@@ -134,8 +123,6 @@ app.get("/urls", (req, res) => {
   } else {
     res.render("urls_index", templateVars);
   };
-
-
 });
 
 // GET user register page, current user is null..there is no user
@@ -146,7 +133,7 @@ app.get("/register", (req, res) => {
 
 // GET create new url. if the current user is not logged, redirect to login page
 app.get("/urls/new", (req, res) => {
-  const userId = req.cookies['user_id'];
+  const userId = req.session['user_id'];
   const currentUser = usersDatabase[userId];
   let templateVars = {
     currentUser: currentUser
@@ -154,22 +141,15 @@ app.get("/urls/new", (req, res) => {
 
   if (!currentUser) {
     res.redirect('/login');
-   
   } else {
     res.render("urls_new", templateVars);
   } 
-  
 });
 
 // GET show tiny url created
-// this one should be displaying "Tiny URL for: long " but not working??? 
 app.get("/urls/:shortURL", (req, res) => {
 
-//  console.log(urlDatabase)
-//  console.log(urlDatabase[req.params.shortURL.toString()])
-//  console.log(req.params.shortURL)
-
-  const userId = req.cookies['user_id'];
+  const userId = req.session['user_id'];
   const currentUser = usersDatabase[userId];
 
   const templateVars = { 
@@ -208,7 +188,7 @@ app.get('/login', (req, res) => {
 app.post('/urls', (req, res) => {
 
   const tinyURL = generateRandomString();
-  const userID = req.cookies['user_id'];
+  const userID = req.session['user_id'];
   
 
   const tempURL = {
@@ -228,7 +208,7 @@ app.post("/urls/:shortURL", (req, res) => {
   let newURL = req.body.longURL;
   urlDatabase[updateUrl] = newURL;
 
-  const userId = req.cookies['user_id'];
+  const userId = req.session['user_id'];
   const currentUser = usersDatabase[userId];
 
   // user must be logged in to edit a url
@@ -243,7 +223,7 @@ app.post("/urls/:shortURL", (req, res) => {
 // POST delete url
 app.post('/urls/:shortURL/delete', (req, res) => {
   
-  const userId = req.cookies['user_id'];
+  const userId = req.session['user_id'];
   const currentUser = usersDatabase[userId];
 
   // user should be logged on to delete the url. If they are not logged on they cannot delete
@@ -263,11 +243,9 @@ app.post('/login', (req, res) => {
 
   const user = authenticateUser(email, password);
 
-
-
 // if user exists let them log in, if they don't then their passwords don't match
   if (user) {
-    res.cookie('user_id', user.id);
+    req.session['user_id'] = user.id;
     res.redirect('/urls');
   } else {
     const emailExists = findUserEmail(email)
@@ -276,14 +254,12 @@ app.post('/login', (req, res) => {
     } else {
       res.status(403).send('Email cannot be found');
     }
-  };
- 
- 
+  }
 });
 
 // POST user logs out and cookies are cleared
 app.post('/logout', (req, res) => {
-  res.clearCookie('user_id', null);
+  req.session['user_id'] = null;
   res.redirect('/urls');
 });
 
@@ -302,7 +278,7 @@ app.post('/register', (req, res) => {
   // if user doesn't exist, they can register. if they exist they should not be allowed
   if (!user) {
     const userID = addNewUser(email, password);
-    res.cookie('user_id', userID);
+    req.session['user_id'] = userID;
     res.redirect('/urls');
   } else {
     res.status(400).send('User already registered')
