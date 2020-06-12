@@ -7,7 +7,6 @@ const cookieSession = require('cookie-session');
 const bcrypt = require('bcrypt');
 const saltRound = 10;
 
-
 app.use(bodyParser.urlencoded({extended: true}));
 app.set("view engine", "ejs");
 
@@ -16,75 +15,57 @@ app.use(cookieSession({
   keys: ['f080ac7b-b838-4c5f-a1f4-b0a9fee10130', 'c3fb18be-448b-4f6e-a377-49373e9b7e1a']
 }));
 
-// shortURL keys, long and user values
+// *********** USER INFORMATION ***********
 const urlDatabase = {
   b6UTxQ: { longURL: "https://www.tsn.ca", userID: "aJ48lW" },
   i3BoGr: { longURL: "https://www.google.ca", userID: "aJ48lW" }
 };
 
-
-const usersDatabase = { 
+const usersDatabase = {
   "userRandomID": {
-    id: "userRandomID", 
-    email: "user@example.com", 
+    id: "userRandomID",
+    email: "user@example.com",
     password: bcrypt.hashSync('a', saltRound),
   },
- "user2RandomID": {
-    id: "user2RandomID", 
-    email: "user2@example.com", 
+  "user2RandomID": {
+    id: "user2RandomID",
+    email: "user2@example.com",
     password: bcrypt.hashSync('dish', saltRound)
   }
+};
 
-}; 
+// *********** HELPER FUNCTIONS ***********
 
-
-// ******** FUNCTIONS ***********
+// function finds user by email
+const { findUserByEmail } = require('./helpers');
 
 // function generates random 6 string
-function generateRandomString() {
+const generateRandomString = () => {
   return Math.random().toString(36).substr(2, 6);
 };
 
-// helper function find user by email
-const findUserByEmail = (email, usersDatabase) => {
-  for (let userID in usersDatabase) {
-    if (usersDatabase[userID].email === email) {
-      return usersDatabase[userID];
-    }
-  }
-  return false;
-};
-
-// helper function authenticate user by comparing email and poa
+// function authenticates user by comparing email and password
 const authenticateUser = (email, password) => {
   const user = findUserByEmail(email, usersDatabase);
 
-
   if (user && bcrypt.compareSync(password, user.password)) {
-   
-    //console.log(bcrypt.compareSync(password, user.password))
     return user;
   } else {
     return false;
   }
 };
 
-// helper function adds new user
+// function adds new user and with hashed password
 const addNewUser = (email, password) => {
   const userID = generateRandomString();
   const hashedPassword = bcrypt.hashSync(password, saltRound);
-  const newUsersObj = {
-    id: userID,
-    email,
-    password: hashedPassword
-    };
-
+  const newUsersObj = { id: userID, email, password: hashedPassword };
   usersDatabase[userID] = newUsersObj;
   return userID;
 };
 
-function urlsForUser(id) {
-  //prepare data
+// function filters through users and finds urls for specific user
+const urlsForUser = (id) => {
   let filteredList = {};
 
   for (let shortUrl in urlDatabase) {
@@ -93,14 +74,15 @@ function urlsForUser(id) {
 
       filteredList[shortUrl] = urlDatabase[shortUrl];
   }
-  return filteredList
+  return filteredList;
 };
 
-function getLongURLFromShort(shortURL) {
-  let longUrl = ""
+// function finds the longURL associated with the shortURL
+const getLongURLFromShort = (shortURL) => {
+  let longUrl = "";
   for (let key in urlDatabase) {
     if (shortURL === key) {
-      longUrl = urlDatabase[key].longURL
+      longUrl = urlDatabase[key].longURL;
     }
   }
   return longUrl;
@@ -117,15 +99,22 @@ app.get("/urls", (req, res) => {
   };
 
   if (!currentUser) {
-    res.send('You must be logged in to view this page');
+    res.send('🔒 You must login to view this page 🔒');
   } else {
     res.render("urls_index", templateVars);
-  };
+  }
 });
 
-// GET user register page, current user is null..there is no user
+// GET user register page, user is null...there is no user yet
 app.get("/register", (req, res) => {
-  let templateVars = { currentUser: null}
+  const userId = req.session['user_id'];
+  const currentUser = usersDatabase[userId];
+
+  if (currentUser) {
+    res.redirect('/urls');
+  }
+
+  let templateVars = { currentUser: null};
   res.render("user_register", templateVars);
 });
 
@@ -141,16 +130,16 @@ app.get("/urls/new", (req, res) => {
     res.redirect('/login');
   } else {
     res.render("urls_new", templateVars);
-  } 
+  }
 });
 
-// GET show tiny url created
+// GET tiny url created associated from long url, user must be login to see this
 app.get("/urls/:shortURL", (req, res) => {
 
   const userId = req.session['user_id'];
   const currentUser = usersDatabase[userId];
 
-  const templateVars = { 
+  const templateVars = {
     urls: urlsForUser(userId),
     shortURL: req.params.shortURL,
     longURL: getLongURLFromShort(req.params.shortURL),
@@ -158,20 +147,19 @@ app.get("/urls/:shortURL", (req, res) => {
   };
   
   if (!currentUser) {
-    res.send('You must be logged in to view this page');
+    res.send('🔒 You must login to view this page 🔒');
   } else {
     res.render("urls_show", templateVars);
-  };
-  
+  }
 });
 
 // GET redirects short url to the long url
 app.get('/u/:shortURL', (req, res) => {
-  const longURL = urlDatabase[req.params.shortURL];
+  const longURL = getLongURLFromShort(req.params.shortURL);
   if (longURL) {
-  res.redirect(longURL);
+    res.redirect(longURL);
   } else {
-    res.status(404);
+    res.status(404).send('⚠️ Cannot redirect, shortURL does not exist ⚠️');
     res.end();
   }
 });
@@ -188,7 +176,6 @@ app.post('/urls', (req, res) => {
   const tinyURL = generateRandomString();
   const userID = req.session['user_id'];
   
-
   const tempURL = {
     longURL: req.body.longURL,
     userID: userID
@@ -207,7 +194,6 @@ app.get('/urls.json', (req, res) => {
 app.post("/urls/:shortURL", (req, res) => {
   const shortURL = req.params.shortURL;
   const newURL = req.body.longURL;
-  // let newURL = getLongURLFromShort(shortURL);
   
   urlDatabase[shortURL].longURL = newURL;
 
@@ -216,10 +202,10 @@ app.post("/urls/:shortURL", (req, res) => {
 
   // user must be logged in to edit a url
   if (!currentUser) {
-    res.send('You must be logged in to edit a URL');
+    res.send('🔒 You must login to edit a URL 🔒');
   } else {
     res.redirect('/urls');
-  };
+  }
 
 });
 
@@ -231,11 +217,11 @@ app.post('/urls/:shortURL/delete', (req, res) => {
 
   // user should be logged on to delete the url. If they are not logged on they cannot delete
   if (!currentUser) {
-    res.send('You must be logged in to delete a URL');
+    res.send('🔒 You must login to delete a URL 🔒');
   } else {
     delete urlDatabase[req.params.shortURL];
-    res.redirect('/urls', templateVars);
-  };
+    res.redirect('/urls');
+  }
 
 });
 
@@ -246,16 +232,16 @@ app.post('/login', (req, res) => {
 
   const user = authenticateUser(email, password);
 
-// if user exists let them log in, if they don't then their passwords don't match
+  // if user exists let them log in, if they don't then their passwords don't match
   if (user) {
     req.session['user_id'] = user.id;
     res.redirect('/urls');
   } else {
-    const emailExists = findUserByEmail(email, usersDatabase)
+    const emailExists = findUserByEmail(email, usersDatabase);
     if (emailExists) {
-      res.status(403).send('Try again! Email and password do not match');
+      res.status(403).send('🔐 Try again! Email and password do not match 🔐');
     } else {
-      res.status(403).send('Email cannot be found');
+      res.status(403).send('🔎 Email cannot be found 🔎');
     }
   }
 });
@@ -273,10 +259,10 @@ app.post('/register', (req, res) => {
  
   const user = findUserByEmail(email, usersDatabase);
 
-// if no email or password they forgot to put info in
+  // if no email or password they forgot to put info in
   if (!email || !password) {
-    res.status(400).send('Fields are empty, you must enter an email and password')
-  };
+    res.status(400).send('📝 Fields are empty, you must enter an email and a password 📝');
+  }
 
   // if user doesn't exist, they can register. if they exist they should not be allowed
   if (!user) {
@@ -284,11 +270,10 @@ app.post('/register', (req, res) => {
     req.session['user_id'] = userID;
     res.redirect('/urls');
   } else {
-    res.status(400).send('User already registered')
-  };
+    res.status(400).send('❗User already registered, use the login page ❗️');
+  }
   
 });
-
 
 // LISTEN at port 8080
 app.listen(PORT, () => {
