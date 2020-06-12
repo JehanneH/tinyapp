@@ -6,7 +6,7 @@ const findUserByEmail = function (email, database) {
       return database[userID];
     }
   }
-  return false
+  return undefined;
 };
 
 module.exports = { findUserByEmail };

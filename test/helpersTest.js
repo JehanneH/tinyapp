@@ -26,5 +26,11 @@ describe('findUserByEmail', function() {
     };
     assert.deepEqual(user, expectedOutput);
   });
-});
 
+  it('should return undefined when passed an email that is not in database', function() {
+    const user = findUserByEmail("example@email.com", testUsers)
+    const expectedOutput = undefined;
+    assert.strictEqual(expectedOutput, user);
+  });
+
+});
