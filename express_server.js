@@ -16,8 +16,6 @@ app.use(cookieSession({
   keys: ['f080ac7b-b838-4c5f-a1f4-b0a9fee10130', 'c3fb18be-448b-4f6e-a377-49373e9b7e1a']
 }));
 
-
-
 // shortURL keys, long and user values
 const urlDatabase = {
   b6UTxQ: { longURL: "https://www.tsn.ca", userID: "aJ48lW" },
@@ -48,7 +46,7 @@ function generateRandomString() {
 };
 
 // helper function find user by email
-const findUserEmail = email => {
+const findUserByEmail = (email, usersDatabase) => {
   for (let userID in usersDatabase) {
     if (usersDatabase[userID].email === email) {
       return usersDatabase[userID];
@@ -59,7 +57,7 @@ const findUserEmail = email => {
 
 // helper function authenticate user by comparing email and poa
 const authenticateUser = (email, password) => {
-  const user = findUserEmail(email);
+  const user = findUserByEmail(email, usersDatabase);
 
 
   if (user && bcrypt.compareSync(password, user.password)) {
@@ -201,12 +199,17 @@ app.post('/urls', (req, res) => {
   res.redirect(`/urls/${tinyURL}`);
 });
 
+app.get('/urls.json', (req, res) => {
+  res.json(urlDatabase);
+});
 
 // POST update url - edit the longURL associated with the shortURL
 app.post("/urls/:shortURL", (req, res) => {
-  const updateUrl = req.params.shortURL;
-  let newURL = req.body.longURL;
-  urlDatabase[updateUrl] = newURL;
+  const shortURL = req.params.shortURL;
+  const newURL = req.body.longURL;
+  // let newURL = getLongURLFromShort(shortURL);
+  
+  urlDatabase[shortURL].longURL = newURL;
 
   const userId = req.session['user_id'];
   const currentUser = usersDatabase[userId];
@@ -248,7 +251,7 @@ app.post('/login', (req, res) => {
     req.session['user_id'] = user.id;
     res.redirect('/urls');
   } else {
-    const emailExists = findUserEmail(email)
+    const emailExists = findUserByEmail(email, usersDatabase)
     if (emailExists) {
       res.status(403).send('Try again! Email and password do not match');
     } else {
@@ -268,7 +271,7 @@ app.post('/register', (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
  
-  const user = findUserEmail(email);
+  const user = findUserByEmail(email, usersDatabase);
 
 // if no email or password they forgot to put info in
   if (!email || !password) {
